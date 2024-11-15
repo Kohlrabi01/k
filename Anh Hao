@@ -1,0 +1,81 @@
+/ Function to get the current time in ISO format
+function getCurrentISODate() {
+    const now = new Date();
+    return now.toISOString(); // 
+ISO format string (YYYY-MM-DDTHH:MM:SSZ)
+}
+
+// Function to calculate expiration date (add number of years to current time)
+function calculateExpiryDate(yearsToAdd = 75) {
+    const now = new Date();
+    now.setFullYear(now.getFullYear() + yearsToAdd); // Add years
+    return now.toISOString(); // ISO format string
+}
+
+// Create subscriptions with automatic timing
+function createSubscription(productId) {
+    const purchaseDate = getCurrentISODate(); // Ngày mua
+    const expiresDate = calculateExpiryDate(); // Ngày hết hạn
+
+    return {
+        is_sandbox: false,
+        ownership_type: "PURCHASED",
+        billing_issues_detected_at: null,
+        period_type: "normal",
+        expires_date: expiresDate, // Ngày hết hạn
+        grace_period_expires_date: null,
+        unsubscribe_detected_at: null,
+        original_purchase_date: purchaseDate, // Ngày mua đầu tiên
+        purchase_date: purchaseDate, // Ngày mua
+        store: "app_store"
+    };
+}
+
+// Create subscriptions with automatic timing
+function createEntitlement(productId) {
+    const purchaseDate = getCurrentISODate(); // Ngày mua
+    const expiresDate = calculateExpiryDate(); // Ngày hết hạn
+
+    return {
+        grace_period_expires_date: null,
+        purchase_date: purchaseDate, // Ngày mua
+        product_identifier: productId, // ID sản phẩm
+        expires_date: expiresDate // Ngày hết hạn
+    };
+}
+
+// Define User-Agent mapping with entitlement and subscription
+const mapping = {
+    '%E8%BD%A6%E7%A5%A8%E7%A5%A8': ['vip+watch_vip'],
+    'Locket': ['Gold']
+};
+
+// Get User-Agent from header
+var ua = $request.headers["User-Agent"] || $request.headers["user-agent"];
+
+// Parse response body
+var obj = JSON.parse($response.body);
+obj.Attention = "Chúc mừng bạn! !"; // Thông báo tùy chỉnh
+
+// Tìm sản phẩm phù hợp với User-Agent
+const match = Object.keys(mapping).find(key => ua.includes(key));
+
+if (match) {
+    const [entitlementKey] = mapping[match];
+    const productId = com.locket02.premium.${entitlementKey.toLowerCase()};
+
+    // Tạo subscription và entitlement cho sản phẩm
+    obj.subscriber.subscriptions[productId] = createSubscription(productId);
+    obj.subscriber.entitlements[entitlementKey] = createEntitlement(productId);
+} else {
+    // Mặc định nếu không khớp User-Agent
+    const defaultProductId = "com.locket02.premium.yearly";
+    const defaultEntitlementKey = "pro";
+
+    // Tạo subscription và entitlement mặc định
+    obj.subscriber.subscriptions[defaultProductId] = createSubscription(defaultProductId);
+    obj.subscriber.entitlements[defaultEntitlementKey] = createEntitlement(defaultProductId);
+}
+
+// Trả về kết quả
+$done({ body: JSON.stringify(obj) });
